@@ -1,0 +1,14 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
+
+# Large raw MIDI data
+midi_generation/dataset/commu_midi/
+
+# Generated preprocessing and training artifacts
+midi_generation/preprocessed/
+midi_generation/checkpoints/
+midi_generation/outputs/
