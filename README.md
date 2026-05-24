@@ -44,10 +44,16 @@ Install dependencies:
 pip install torch pretty_midi
 ```
 
+CD into the project directory:
+
+```bash
+cd midi_generation
+```
+
 extract `commu_midi.tar`:
 
 ```bash
-tar -xf midi_generation/dataset/commu_midi.tar -C midi_generation/dataset/
+tar -xf dataset/commu_midi.tar -C midi_generation/dataset/
 ```
 
 Expected dataset layout:
@@ -63,7 +69,7 @@ midi_generation/dataset/commu_midi/val/raw/*.mid
 Build chord and melody token files:
 
 ```bash
-python3 midi_generation/preprocess.py
+python preprocess.py
 ```
 
 This creates:
@@ -80,7 +86,7 @@ midi_generation/preprocessed/val.jsonl
 Train the encoder-decoder model:
 
 ```bash
-python3 midi_generation/train.py --epochs 50 --batch-size 32
+python train.py --epochs 50 --batch-size 32
 ```
 
 Checkpoints are saved to:
@@ -97,7 +103,7 @@ midi_generation/checkpoints/last.pt
 Generate from a compact chord progression:
 
 ```bash
-python3 midi_generation/generate.py Am-G-F-E-Am-G-F-E --steps-per-chord 8
+python generate.py Am-G-F-E-Am-G-F-E --steps-per-chord 8
 ```
 
 This writes:
@@ -109,16 +115,16 @@ midi_generation/outputs/generated.mid
 If you provide a full time-step chord sequence, omit `--steps-per-chord`:
 
 ```bash
-python3 midi_generation/generate.py Am-Am-Am-Am-Am-Am-Am-Am-G-G-G-G-G-G-G-G
+python generate.py Am-Am-Am-Am-Am-Am-Am-Am-G-G-G-G-G-G-G-G
 ```
 
 Example progressions:
 
 ```bash
-python3 midi_generation/generate.py Am-G-F-E-Am-G-F-E --steps-per-chord 8
-python3 midi_generation/generate.py C-G-Am-F-C-G-Am-F --steps-per-chord 8
-python3 midi_generation/generate.py G-D-Em-C-G-D-Em-C --steps-per-chord 8
-python3 midi_generation/generate.py Am-F-C-G-Am-F-C-G --steps-per-chord 8
+python generate.py Am-G-F-E-Am-G-F-E --steps-per-chord 8
+python generate.py C-G-Am-F-C-G-Am-F --steps-per-chord 8
+python generate.py G-D-Em-C-G-D-Em-C --steps-per-chord 8
+python generate.py Am-F-C-G-Am-F-C-G --steps-per-chord 8
 ```
 
 ## Notes
