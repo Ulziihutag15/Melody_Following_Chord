@@ -12,3 +12,22 @@ midi_generation/dataset/commu_midi/
 midi_generation/preprocessed/
 midi_generation/checkpoints/
 midi_generation/outputs/
+
+
+@"
+# Ignore nested git repo
+midi_project/hifi-gan/
+
+# Ignore large data files
+midi_project/maestro_mini/
+midi_project/maestro.zip
+midi_project/venv/
+midi_project/checkpoints/
+midi_project/__pycache__/
+
+# Ignore large files
+*.pt
+*.zip
+*.wav
+*.mp3
+"@ | Out-File -FilePath .gitignore -Encoding utf8
