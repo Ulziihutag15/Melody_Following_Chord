@@ -1,7 +1,7 @@
 from torch import nn
 
-from model.decoder import MelodyDecoder
-from model.encoder import ChordEncoder
+from .decoder import MelodyDecoder
+from .encoder import ChordEncoder
 
 
 class ChordConditionedMelodyModel(nn.Module):

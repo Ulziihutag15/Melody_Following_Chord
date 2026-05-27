@@ -7,11 +7,16 @@ from statistics import mean
 
 import torch
 
-from model.chord_features import build_chord_feature_matrix
-from model.seq2seq import ChordConditionedMelodyModel
+try:
+    from .model.chord_features import build_chord_feature_matrix
+    from .model.seq2seq import ChordConditionedMelodyModel
+except ImportError:
+    from model.chord_features import build_chord_feature_matrix
+    from model.seq2seq import ChordConditionedMelodyModel
 
 
 PAD_ID = 0
+BASE_DIR = Path(__file__).resolve().parent
 START = "<START>"
 REST = "REST"
 HOLD = "HOLD"
@@ -330,6 +335,116 @@ def melody_stats(melody_ids: list[int], rest_id: int, id_to_pitch: dict[int, int
     }
 
 
+NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+
+
+def pitch_name(pitch: int) -> str:
+    return f"{NOTE_NAMES[pitch % 12]}{pitch // 12 - 1}"
+
+
+def note_sort_key(note_name: str) -> tuple[int, int]:
+    octave = int(note_name[-1])
+    pitch_class = note_name[:-1]
+    return octave, NOTE_NAMES.index(pitch_class)
+
+
+def format_pitch_classes(pitch_classes: set[int]) -> str:
+    return "/".join(NOTE_NAMES[pc] for pc in sorted(pitch_classes)) or "unknown"
+
+
+def analyze_chord_fit(
+    melody_ids: list[int],
+    expanded_chords: list[str],
+    id_to_pitch: dict[int, int],
+) -> dict:
+    note_rows = []
+    sections = []
+
+    for step, (token_id, chord) in enumerate(zip(melody_ids, expanded_chords)):
+        if not sections or sections[-1]["chord"] != chord:
+            sections.append(
+                {
+                    "chord": chord,
+                    "start_step": step,
+                    "end_step": step + 1,
+                    "notes": [],
+                }
+            )
+        else:
+            sections[-1]["end_step"] = step + 1
+
+        if token_id not in id_to_pitch:
+            continue
+
+        pitch = id_to_pitch[token_id]
+        pitch_classes = chord_pitch_classes(chord)
+        in_chord = bool(pitch_classes) and pitch % 12 in pitch_classes
+        row = {
+            "step": step,
+            "chord": chord,
+            "pitch": pitch,
+            "note": pitch_name(pitch),
+            "in_chord": in_chord,
+            "tones": format_pitch_classes(pitch_classes),
+        }
+        note_rows.append(row)
+        sections[-1]["notes"].append(row)
+
+    total_notes = len(note_rows)
+    chord_tone_rate = (
+        sum(row["in_chord"] for row in note_rows) / total_notes if total_notes else 0.0
+    )
+    pitch_values = [row["pitch"] for row in note_rows]
+
+    return {
+        "total_notes": total_notes,
+        "unique_notes": sorted({row["note"] for row in note_rows}, key=note_sort_key),
+        "pitch_range": (
+            (pitch_name(min(pitch_values)), pitch_name(max(pitch_values)))
+            if pitch_values
+            else None
+        ),
+        "chord_tone_rate": chord_tone_rate,
+        "sections": sections,
+        "note_rows": note_rows,
+    }
+
+
+def print_chord_fit_analysis(analysis: dict, show_timeline: bool = False) -> None:
+    print("chord-fit analysis:")
+    print(f"  notes: {analysis['total_notes']}")
+    print(f"  pitch_range: {analysis['pitch_range']}")
+    print(f"  unique_notes: {' '.join(analysis['unique_notes'])}")
+    print(f"  overall_chord_tone_rate: {analysis['chord_tone_rate']:.2f}")
+    print("  sections:")
+
+    for index, section in enumerate(analysis["sections"], start=1):
+        notes = section["notes"]
+        if notes:
+            tone_rate = sum(row["in_chord"] for row in notes) / len(notes)
+            note_text = " ".join(
+                row["note"] if row["in_chord"] else f"{row['note']}*"
+                for row in notes
+            )
+        else:
+            tone_rate = 0.0
+            note_text = "(no note onsets)"
+        print(
+            f"    {index:02d} {section['chord']} "
+            f"steps {section['start_step']}-{section['end_step'] - 1}: "
+            f"tone_rate={tone_rate:.2f} notes={note_text}"
+        )
+
+    if show_timeline:
+        print("  timeline (* = non-chord tone):")
+        for row in analysis["note_rows"]:
+            marker = "" if row["in_chord"] else "*"
+            print(
+                f"    step {row['step']:02d} {row['chord']:<4s} "
+                f"tones({row['tones']}) -> {row['note']}{marker}"
+            )
+
+
 def is_acceptable(stats: dict, min_unique_notes: int, max_adjacent_repeat_ratio: float) -> bool:
     return (
         stats["num_notes"] > 0
@@ -407,9 +522,9 @@ def main() -> None:
         nargs="*",
         help="Chord progression, either space-separated or hyphen-separated. Example: Am-G-F-E-Am-G-F-E",
     )
-    parser.add_argument("--checkpoint", default="checkpoints/best.pt")
-    parser.add_argument("--chord-vocab", default="preprocessed/chord_vocab.json")
-    parser.add_argument("--melody-vocab", default="preprocessed/melody_vocab.json")
+    parser.add_argument("--checkpoint", default=str(BASE_DIR / "checkpoints" / "best.pt"))
+    parser.add_argument("--chord-vocab", default=str(BASE_DIR / "preprocessed" / "chord_vocab.json"))
+    parser.add_argument("--melody-vocab", default=str(BASE_DIR / "preprocessed" / "melody_vocab.json"))
     parser.add_argument(
         "--chords",
         nargs="+",
@@ -471,9 +586,19 @@ def main() -> None:
     parser.add_argument("--min-unique-notes", type=int, default=5)
     parser.add_argument("--max-adjacent-repeat-ratio", type=float, default=0.6)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda", "mps"])
-    parser.add_argument("--out-midi", default="outputs/generated.mid")
+    parser.add_argument("--out-midi", default=str(BASE_DIR / "outputs" / "generated.mid"))
     parser.add_argument("--step-seconds", type=float, default=0.25)
     parser.add_argument("--velocity", type=int, default=90)
+    parser.add_argument(
+        "--analyze",
+        action="store_true",
+        help="Print chord-tone fit and per-section note analysis for each generated MIDI.",
+    )
+    parser.add_argument(
+        "--analysis-timeline",
+        action="store_true",
+        help="With --analyze, also print every note onset with its chord and chord tones.",
+    )
     args = parser.parse_args()
 
     chord_args = args.chords if args.chords is not None else args.progression
@@ -562,7 +687,13 @@ def main() -> None:
             f"rest_ratio={stats['rest_ratio']:.2f} "
             f"score={stats['score']:.2f}"
         )
-        print(f"wrote: {out_midi}")
+        if args.analyze:
+            analysis = analyze_chord_fit(
+                [melody_vocab[token] for token in melody_tokens],
+                expanded_chords,
+                id_to_pitch,
+            )
+            print_chord_fit_analysis(analysis, args.analysis_timeline)
 
 
 if __name__ == "__main__":

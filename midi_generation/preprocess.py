@@ -21,6 +21,7 @@ from collections import Counter
 from pathlib import Path
 
 
+BASE_DIR = Path(__file__).resolve().parent
 PAD = "<PAD>"
 UNK = "<UNK>"
 START = "<START>"
@@ -191,8 +192,7 @@ def preprocess(args: argparse.Namespace) -> None:
             "start": START,
             "rest": REST,
             "hold": HOLD,
-        },
-        "outputs": sorted(str(path) for path in out_dir.glob("*")),
+        }
     }
     write_json(out_dir / "summary.json", summary)
     print(json.dumps(summary, indent=2))
@@ -202,9 +202,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Build chord and melody token ID files for chord-conditioned melody generation."
     )
-    parser.add_argument("--meta", default="dataset/commu_meta.csv")
-    parser.add_argument("--midi-root", default="dataset/commu_midi")
-    parser.add_argument("--out-dir", default="preprocessed")
+    parser.add_argument("--meta", default=str(BASE_DIR / "dataset" / "commu_meta.csv"))
+    parser.add_argument("--midi-root", default=str(BASE_DIR / "dataset" / "commu_midi"))
+    parser.add_argument("--out-dir", default=str(BASE_DIR / "preprocessed"))
     parser.add_argument("--max-items", type=int, default=None)
     parser.add_argument(
         "--chords-only",

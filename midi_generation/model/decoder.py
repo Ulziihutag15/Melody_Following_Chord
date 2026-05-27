@@ -3,7 +3,7 @@ import math
 import torch
 from torch import nn
 
-from model.encoder import SinusoidalPositionalEncoding
+from .encoder import SinusoidalPositionalEncoding
 
 
 class MelodyDecoder(nn.Module):

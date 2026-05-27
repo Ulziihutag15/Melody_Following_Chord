@@ -8,11 +8,16 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
-from model.chord_features import build_chord_feature_matrix
-from model.seq2seq import ChordConditionedMelodyModel
+try:
+    from .model.chord_features import build_chord_feature_matrix
+    from .model.seq2seq import ChordConditionedMelodyModel
+except ImportError:
+    from model.chord_features import build_chord_feature_matrix
+    from model.seq2seq import ChordConditionedMelodyModel
 
 
 PAD_ID = 0
+BASE_DIR = Path(__file__).resolve().parent
 
 
 class MelodyJsonlDataset(Dataset):
@@ -129,11 +134,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Train a chord-conditioned encoder-decoder melody model."
     )
-    parser.add_argument("--train-jsonl", default="preprocessed/train.jsonl")
-    parser.add_argument("--val-jsonl", default="preprocessed/val.jsonl")
-    parser.add_argument("--chord-vocab", default="preprocessed/chord_vocab.json")
-    parser.add_argument("--melody-vocab", default="preprocessed/melody_vocab.json")
-    parser.add_argument("--checkpoint-dir", default="checkpoints")
+    parser.add_argument("--train-jsonl", default=str(BASE_DIR / "preprocessed" / "train.jsonl"))
+    parser.add_argument("--val-jsonl", default=str(BASE_DIR / "preprocessed" / "val.jsonl"))
+    parser.add_argument("--chord-vocab", default=str(BASE_DIR / "preprocessed" / "chord_vocab.json"))
+    parser.add_argument("--melody-vocab", default=str(BASE_DIR / "preprocessed" / "melody_vocab.json"))
+    parser.add_argument("--checkpoint-dir", default=str(BASE_DIR / "checkpoints"))
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=3e-4)
